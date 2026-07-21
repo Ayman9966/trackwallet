@@ -107,12 +107,12 @@ def generate_status_text(user_id: int):
     income, expense, net, transactions = get_user_data(user_id)
     net_icon = "✅" if net >= 0 else "❌"
 
-    text = f"📊 **Balance Overview**\n\n"
+    text = "📊 **Balance Overview**\n\n"
     text += f"💵 Income: +{income:.2f}\n"
     text += f"💸 Expenses: -{expense:.2f}\n\n"
     text += f"📈 Net: {net:+.2f} {net_icon}\n\n"
-    text += f"📝 **Last 5 Transactions**\n"
-    text += f"━━━━━━━━━━━━━━━━━━━\n"
+    text += "📝 **Last 5 Transactions**\n"
+    text += "━━━━━━━━━━━━━━━━━━━\n"
 
     if not transactions:
         text += "_No transactions yet._"
@@ -367,7 +367,9 @@ async def delete_transaction(update: Update, context: ContextTypes.DEFAULT_TYPE)
 
 def main():
     init_db()
-    TOKEN = os.getenv("TELEGRAM_BOT_TOKEN", "8447427156:AAEU5rSWKXcAX7MrTVo1bNa06mNLbePLNkM")
+    TOKEN = os.getenv(
+        "TELEGRAM_BOT_TOKEN", "8447427156:AAEU5rSWKXcAX7MrTVo1bNa06mNLbePLNkM"
+    )
 
     application = Application.builder().token(TOKEN).build()
 
@@ -383,20 +385,25 @@ def main():
                 CallbackQueryHandler(button_handler),
             ],
             GET_DESCRIPTION: [
-                MessageHandler(filters.TEXT & ~filters.COMMAND, receive_description),
+                MessageHandler(
+                    filters.TEXT & ~filters.COMMAND, receive_description
+                ),
                 CallbackQueryHandler(button_handler),
             ],
             DELETE_RECORD: [
-                MessageHandler(filters.TEXT & ~filters.COMMAND, delete_transaction),
+                MessageHandler(
+                    filters.TEXT & ~filters.COMMAND, delete_transaction
+                ),
                 CallbackQueryHandler(button_handler),
             ],
         },
         fallbacks=[CommandHandler("start", start)],
+        per_message=True,  # Clears the PTB warning completely
     )
 
     application.add_handler(conv_handler)
 
-    print("Bot is running...")
+    print("Bot is running cleanly...")
     application.run_polling()
 
 
