@@ -98,6 +98,11 @@ def build_home_keyboard():
     return InlineKeyboardMarkup(keyboard)
 
 
+def build_back_keyboard():
+    keyboard = [[InlineKeyboardButton("🔙 Back", callback_data="btn_back")]]
+    return InlineKeyboardMarkup(keyboard)
+
+
 def generate_status_text(user_id: int):
     income, expense, net, transactions = get_user_data(user_id)
     net_icon = "✅" if net >= 0 else "❌"
@@ -206,16 +211,27 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
     chat_id = update.effective_chat.id
 
-    if data == "btn_expense":
+    if data == "btn_back":
+        text = generate_status_text(user_id)
+        await save_or_update_main_message(
+            context, chat_id, user_id, text, build_home_keyboard()
+        )
+        return SELECTING_ACTION
+
+    elif data == "btn_expense":
         context.user_data["tx_type"] = "Expense"
         text = "💸 **Add Expense**\n\nPlease enter the amount:"
-        await save_or_update_main_message(context, chat_id, user_id, text, None)
+        await save_or_update_main_message(
+            context, chat_id, user_id, text, build_back_keyboard()
+        )
         return GET_AMOUNT
 
     elif data == "btn_income":
         context.user_data["tx_type"] = "Income"
         text = "💵 **Add Income**\n\nPlease enter the amount:"
-        await save_or_update_main_message(context, chat_id, user_id, text, None)
+        await save_or_update_main_message(
+            context, chat_id, user_id, text, build_back_keyboard()
+        )
         return GET_AMOUNT
 
     elif data == "btn_delete":
@@ -228,7 +244,9 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             return SELECTING_ACTION
 
         text = "🗑 **Delete Record**\n\nPlease enter the ID number of the transaction you want to delete:"
-        await save_or_update_main_message(context, chat_id, user_id, text, None)
+        await save_or_update_main_message(
+            context, chat_id, user_id, text, build_back_keyboard()
+        )
         return DELETE_RECORD
 
     elif data == "btn_export":
@@ -272,11 +290,15 @@ async def receive_amount(update: Update, context: ContextTypes.DEFAULT_TYPE):
             raise ValueError
         context.user_data["amount"] = amount
         text = "📝 Now, enter a short description:"
-        await save_or_update_main_message(context, chat_id, user_id, text, None)
+        await save_or_update_main_message(
+            context, chat_id, user_id, text, build_back_keyboard()
+        )
         return GET_DESCRIPTION
     except ValueError:
         text = "⚠️ Invalid amount. Please enter a valid number greater than 0:"
-        await save_or_update_main_message(context, chat_id, user_id, text, None)
+        await save_or_update_main_message(
+            context, chat_id, user_id, text, build_back_keyboard()
+        )
         return GET_AMOUNT
 
 
@@ -324,8 +346,10 @@ async def delete_transaction(update: Update, context: ContextTypes.DEFAULT_TYPE)
         conn.close()
 
         if deleted_rows == 0:
-            text = "⚠️ Transaction ID not found. Please enter a valid ID to delete, or send /start to cancel:"
-            await save_or_update_main_message(context, chat_id, user_id, text, None)
+            text = "⚠️ Transaction ID not found. Please enter a valid ID to delete:"
+            await save_or_update_main_message(
+                context, chat_id, user_id, text, build_back_keyboard()
+            )
             return DELETE_RECORD
 
         text = generate_status_text(user_id)
@@ -335,16 +359,15 @@ async def delete_transaction(update: Update, context: ContextTypes.DEFAULT_TYPE)
         return SELECTING_ACTION
     except ValueError:
         text = "⚠️ Invalid ID. Please enter a numerical transaction ID:"
-        await save_or_update_main_message(context, chat_id, user_id, text, None)
+        await save_or_update_main_message(
+            context, chat_id, user_id, text, build_back_keyboard()
+        )
         return DELETE_RECORD
 
 
 def main():
     init_db()
-    # Securely fetch token from Render environment variables
-    TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
-    if not TOKEN:
-        raise ValueError("No TELEGRAM_BOT_TOKEN environment variable found!")
+    TOKEN = os.getenv("TELEGRAM_BOT_TOKEN", "8447427156:AAEU5rSWKXcAX7MrTVo1bNa06mNLbePLNkM")
 
     application = Application.builder().token(TOKEN).build()
 
@@ -355,12 +378,17 @@ def main():
         ],
         states={
             SELECTING_ACTION: [CallbackQueryHandler(button_handler)],
-            GET_AMOUNT: [MessageHandler(filters.TEXT & ~filters.COMMAND, receive_amount)],
+            GET_AMOUNT: [
+                MessageHandler(filters.TEXT & ~filters.COMMAND, receive_amount),
+                CallbackQueryHandler(button_handler),
+            ],
             GET_DESCRIPTION: [
-                MessageHandler(filters.TEXT & ~filters.COMMAND, receive_description)
+                MessageHandler(filters.TEXT & ~filters.COMMAND, receive_description),
+                CallbackQueryHandler(button_handler),
             ],
             DELETE_RECORD: [
-                MessageHandler(filters.TEXT & ~filters.COMMAND, delete_transaction)
+                MessageHandler(filters.TEXT & ~filters.COMMAND, delete_transaction),
+                CallbackQueryHandler(button_handler),
             ],
         },
         fallbacks=[CommandHandler("start", start)],
